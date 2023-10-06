@@ -185,7 +185,7 @@ void EINT0_IRQHandler(){
 	pin1Cfg.Pinnum = PINSEL_PIN_28;
 	pin1Cfg.Pinmode = PINSEL_PINMODE_NORMAL;
 	pin1Cfg.Portnum = PINSEL_PORT_1;
-	pin1Cfg.Funcnum = PINSEL_FUNC_0;
+	pin1Cfg.Funcnum = PINSEL_FUNC_1;
 	PINSEL_ConfigPin(&pin1Cfg);
 	if((secuencia & 1) == 1){
 		estoyEnAlto = 1;
@@ -202,6 +202,10 @@ void EINT0_IRQHandler(){
 	}
 	else{
 		polaridad = 0;
+		pin1Cfg.Pinnum = PINSEL_PIN_28;
+		pin1Cfg.Pinmode = PINSEL_PINMODE_NORMAL;
+		pin1Cfg.Portnum = PINSEL_PORT_1;
+		pin1Cfg.Funcnum = PINSEL_FUNC_0;
 		EXTI_SetPolarity(EINT3_IRQn,EXTI_POLARITY_LOW_ACTIVE_OR_FALLING_EDGE);
 		TIM_Cmd(LPC_TIM1,DISABLE);
 		NVIC_DisableIRQ(TIMER1_IRQn);
