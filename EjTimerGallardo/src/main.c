@@ -21,7 +21,7 @@
 
 volatile uint8_t periodo = 1;
 uint8_t estaenT1 = 1;
-uint8_t savePeriodo;
+uint8_t savePeriodo; //Guarda el valor del periodo entre ciclo y ciclo para que no cambie si cambia el valor en los switches
 uint32_t secuencia = 0xA0A3;
 uint8_t estoyEnAlto = 0; //Sirve para avisar que hay que esperar otros 5 ms x estar en alto
 uint8_t counter = 1; //Empieza en 1 porque la primera recorrida la hacemos en el handler de la interrupcion
@@ -31,7 +31,7 @@ uint8_t polaridad = 0;
 
 void configTimer0(){
 	//Seteamos el pin 1.28 en match
-	PINSEL_CFG_Type pinCfg;
+	PINSEL_CFG_Type pinCfg;  
 	pinCfg.Pinnum = PINSEL_PIN_28;
 	pinCfg.Pinmode = PINSEL_PINMODE_NORMAL;
 	pinCfg.Portnum = PINSEL_PORT_1;
@@ -49,7 +49,7 @@ void configTimer0(){
 	matCfg.MatchValue = ((((50*10^-3)/periodo)/(5001))*(100*10^6))-1;
 	matCfg.ResetOnMatch = ENABLE;
 	matCfg.StopOnMatch = DISABLE;
-	savePeriodo = periodo;
+	savePeriodo = periodo; //Como empezamos en T1 guardo el valor aca ya que va a ser solo la primera vez
 	TIM_Init(LPC_TIM0,TIM_TIMER_MODE,(void*) &timCfg);
 	TIM_ConfigMatch(LPC_TIM0,&matCfg);
 	TIM_Cmd(LPC_TIM0,ENABLE);
@@ -78,37 +78,37 @@ void configTimer1(){
 
 
 void TIMER0_IRQHandler(){
-	if(estaenT1 == 1){
+	if(estaenT1 == 1){ //Si estaba en la etapa de trabajo esto es 1, por lo que cuando llegamos aca togleamos para pasar a la parte de "No trabajo (Osea T2)"
 		estaenT1 = 0;
-		LPC_TIM0->MR0 = (50*10^-3)-((50*10^-3)/savePeriodo);
+		LPC_TIM0->MR0 = (50*10^-3)-((50*10^-3)/savePeriodo); //T1 = 50 - T2 
 		TIM_ClearIntPending(LPC_TIM0, TIM_CR0_INT);
 		return;
 	}
 	else{
 		savePeriodo = periodo;
 		estaenT1 = 1;
-		LPC_TIM0->MR0 = ((50*10^-3)/savePeriodo);
+		LPC_TIM0->MR0 = ((50*10^-3)/savePeriodo); //T2 = 50/periodo
 		TIM_ClearIntPending(LPC_TIM0, TIM_CR0_INT);
 		return;
 	}
 }
 
 void TIMER1_IRQHandler(){
-	if(estoyEnAlto == 1){
+	if(estoyEnAlto == 1){ //Como el timer1 esta seteado para interrumpir cada 5 ms, si esta en alto significa que estamos a la mitad de la salida de 10 ms
 		estoyEnAlto = 0;
-		counter++;
+		counter++; //Counter de posicion en la secuencia 
 		if(counter == 16){counter = 0;}
 		TIM_ClearIntPending(LPC_TIM0, TIM_CR0_INT);
 		return;
 	}
 
-	if((secuencia & (1<<counter)) == 1){
+	if((secuencia & (1<<counter)) == 1){ //Si encuentra un 1 pone la salida en alto, y avisa que estamos en el primer ciclo de los dos de 5ms
 		estoyEnAlto = 1;
 		LPC_GPIO1->FIOPIN |= (1<<28);
 		TIM_ClearIntPending(LPC_TIM0, TIM_CR0_INT);
 		return;
 	}
-	else{
+	else{ //Si encuentra un 1, pone en bajo y aumenta el counter ya que solo dura 5ms el bajo
 		LPC_GPIO1->FIOPIN &= ~(1<<28);
 		counter++;
 		if(counter == 16){counter = 0;}
@@ -172,44 +172,46 @@ void configGPIOINT(){
 
 void EINT3_IRQHandler(){
 	periodo = (LPC_GPIO0->FIOPIN & (0b1111)); //Lsb:pin derecha (Conectado a P0.0), Msb: Pin izquierda (conectado a P0.3)
-	if(periodo == 0){periodo = 1;}
+	if(periodo == 0){periodo = 1;} //Si es todo 0 el % de trabajo es del 100
 	LPC_GPIOINT->IO0IntClr |= 0x0F;
 }
 
 void EINT0_IRQHandler(){
-	if(polaridad == 0){
-	polaridad = 1;
-	estoyEnAlto = 1;
-	counter = 1;
+	if(polaridad == 0){ //Con esto me permito que solo ejecute la rutina una vez, pero que mientras mantenga apretado salga la secuencia requerida
+	TIM_Cmd(LPC_TIM0,DISABLE);
+	TIM_ResetCounter(LPC_TIM0);
+	polaridad = 1; 
+	counter = 1; //Empezamos en 1 ya que el primer valor de la secuencia se lee en el handler
 	PINSEL_CFG_Type pin1Cfg;
 	pin1Cfg.Pinnum = PINSEL_PIN_28;
 	pin1Cfg.Pinmode = PINSEL_PINMODE_NORMAL;
 	pin1Cfg.Portnum = PINSEL_PORT_1;
-	pin1Cfg.Funcnum = PINSEL_FUNC_1;
+	pin1Cfg.Funcnum = PINSEL_FUNC_1; //Cambiamos funcionamiento del pin 1.28 a GPIO ya que la salida ahora no depende del timer
 	PINSEL_ConfigPin(&pin1Cfg);
 	if((secuencia & 1) == 1){
-		estoyEnAlto = 1;
+		estoyEnAlto = 1; 
 		LPC_GPIO1->FIOPIN |= (1<<28);
 	}
 	else{
 		LPC_GPIO1->FIOPIN |= ~(1<<28);
 	}
-	TIM_Cmd(LPC_TIM0,DISABLE);
 	TIM_Cmd(LPC_TIM1,ENABLE);
 	NVIC_EnableIRQ(TIMER1_IRQn);
 	EXTI_ClearEXTIFlag(EXTI_EINT0);
 	EXTI_SetPolarity(EINT3_IRQn,EXTI_POLARITY_HIGH_ACTIVE_OR_RISING_EDGE); //Cambiamos la polaridad para leer cuando deje de estar pulsado
 	}
 	else{
-		polaridad = 0;
+		polaridad = 0; //Esto indica que ahora estamos en nivel alto de vuelta por lo que nos interesa volver el sistema a la normalidad
 		pin1Cfg.Pinnum = PINSEL_PIN_28;
 		pin1Cfg.Pinmode = PINSEL_PINMODE_NORMAL;
 		pin1Cfg.Portnum = PINSEL_PORT_1;
-		pin1Cfg.Funcnum = PINSEL_FUNC_0;
+		pin1Cfg.Funcnum = PINSEL_FUNC_0; //Pin 1.28 de vuelta en salida de timer
+		estaenT1 = 1;
+		savePeriodo = periodo;
 		EXTI_SetPolarity(EINT3_IRQn,EXTI_POLARITY_LOW_ACTIVE_OR_FALLING_EDGE);
 		TIM_Cmd(LPC_TIM1,DISABLE);
 		NVIC_DisableIRQ(TIMER1_IRQn);
-		TIM_Cmd(LPC_TIM0,ENABLE);
+		TIM_Cmd(LPC_TIM0,ENABLE); //Desactivamos Timer1 y activamos Timer0
 		EXTI_ClearEXTIFlag(EXTI_EINT0);
 	}
 
