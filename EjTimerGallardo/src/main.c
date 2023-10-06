@@ -13,10 +13,10 @@
 
 #include "LPC17xx.h"
 
-#include "C:\Users\joaqu\Documents\MCUXpressoIDE_11.8.0_1165\workspace4\CMSISv2p00_LPC17xx\Drivers\inc\lpc17xx_pinsel.h"
-#include "C:\Users\joaqu\Documents\MCUXpressoIDE_11.8.0_1165\workspace4\CMSISv2p00_LPC17xx\Drivers\inc\lpc17xx_gpio.h"
-#include "C:\Users\joaqu\Documents\MCUXpressoIDE_11.8.0_1165\workspace4\CMSISv2p00_LPC17xx\Drivers\inc\lpc17xx_exti.h"
-#include "C:\Users\joaqu\Documents\MCUXpressoIDE_11.8.0_1165\workspace4\CMSISv2p00_LPC17xx\Drivers\inc\lpc17xx_timer.h"
+#include "lpc17xx_pinsel.h"
+#include "lpc17xx_gpio.h"
+#include "lpc17xx_exti.h"
+#include "lpc17xx_timer.h"
 
 
 volatile uint8_t periodo = 1;
